@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zhihu Answer Writer"
+  short_description: "根据知乎问题链接生成可发布的原创高质量回答文案内容"
+  default_prompt: "根据给定知乎问题链接生成可直接发布的原创高质量回答文案，避免抄袭并提高点赞潜力。"

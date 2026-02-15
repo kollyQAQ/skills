@@ -1,0 +1,3 @@
+display_name: Zhihu Answerer
+short_description: 使用知乎 Cookie 自动填写并提交回答
+default_prompt: 使用当前提供的知乎 Cookie，在指定问题页面写入回答内容，默认保存草稿并返回执行结果。
