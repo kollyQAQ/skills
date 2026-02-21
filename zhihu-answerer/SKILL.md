@@ -1,49 +1,61 @@
 ---
 name: zhihu-answerer
-description: 在知乎网站自动化撰写并提交回答。用于基于已有知乎账号登录态（Cookie）打开问题页并发布回答；若用户已回答同一问题则自动进入编辑回答并替换为新内容后重新发布；若正文含淘宝/京东商品链接则自动尝试插入商品卡片，无法匹配时跳过该链接且不保留原始 URL 文本。
+description: 给定知乎问题链接后自动完成题面理解、原创回答生成并直接发布。用于用户只提供知乎问题 URL（可选风格或长度要求）时执行端到端流程；发布时固定从 ~/.config/zhihu_cookie.txt 读取登录态 Cookie。
 ---
 
-# Zhihu Answerer
+# Zhihu Auto Answerer
 
 ## 输入要求
 
-要求用户提供以下最小信息：
+最小输入：
 - 目标问题 URL（`https://www.zhihu.com/question/...`）
-- 回答正文（Markdown 或纯文本）
-- 模式：`draft`（保存草稿）或 `publish`（直接发布）
-- Cookie 字符串（至少包含登录态相关 cookie）
-- 可选：商品链接列表（淘宝/京东等）
 
-优先让用户提供完整 `Cookie` 请求头字符串；不要要求账号密码。
+可选输入：
+- 语气/风格偏好（理性分析、轻松口语、强观点等）
+- 长度偏好（短答、中等、长答）
+- 其他写作约束（如是否给一句话总结）
 
 ## 执行流程
 
-1. 将用户 Cookie 写入临时环境变量，不落盘。
-2. 运行 `scripts/post_answer_playwright.js`，传入 URL、内容和模式。
-3. 先做登录态检查：访问知乎首页并确认用户菜单可见。
-4. 打开目标问题页，等待“写回答”入口可交互。
-5. 进入编辑器，使用新正文整体替换已有内容。
-6. 从正文自动提取淘宝/京东商品链接并从正文中移除 URL 文本。
-7. 若有商品链接，点击“收益”入口，进入收益 iframe 面板，执行“好物推荐 -> 选渠道 -> 粘贴链接 -> 商品行添加 -> 编辑商品确定”。
-8. 若模式为 `draft`，点击“保存草稿”；若模式为 `publish`，点击“提交修改/发布”并校验 `POST /api/v4/content/publish` 成功。
-9. 若某商品链接无法匹配商品卡，则跳过该链接并继续；不得把该链接 URL 留在正文中。
-10. 输出执行结果（成功/失败、页面标题、最终 URL、发布校验状态、插卡跳过原因）。
+1. 抓取并理解题面：标题、题主补充、话题标签、问题语境。
+2. 按 `references/zhihu-quality-playbook.md` 先确定写作策略：导语、结构、论证、话题适配与合规边界。
+3. 依据 `references/answer-framework.md` 生成结构完整、可发布的原创正文。
+4. 依据 `references/originality-checklist.md` 与 `references/zhihu-quality-playbook.md` 的“出稿质量闸门”做发布前自检，改写高相似或低信息密度段落。
+5. 若问题属于高风险领域（医疗/法律/投资等），必须加入边界说明与“咨询专业人士/以当地法规为准”提示。
+6. 运行 `scripts/post_answer_playwright.js`，传入 URL、正文，并固定使用 `--mode publish` 直接发布。
+7. 脚本从 `~/.config/zhihu_cookie.txt` 读取 Cookie，先校验登录态，再执行写入并发布。
+8. 校验 `POST /api/v4/content/publish` 成功，输出结果 JSON（`ok`、`publishVerified`、`finalUrl` 等）。
 
-## 失败处理
+## 写作规则
 
-- 若检测到未登录或 cookie 失效，立即停止并提示用户更新 Cookie。
-- 若按钮文案或 DOM 结构变化，截图并打印可用按钮文本，提示更新选择器。
-- 若发布失败，至少保留已写入编辑器内容并尝试保存草稿。
-- 若商品链接未匹配到卡片，记录跳过原因并继续发布。
-- 若开启商品卡发布，正文少于 200 可见字符时直接报错并停止，避免误判成功。
+- 必须使用“信息流两行导语 + 开门见山给结论 + 分段论证 + 落地清单 + 边界声明”结构。
+- 以题面问题为中心，优先信息价值、判断价值、情绪价值三者平衡。
+- 提供可验证事实、机制解释和可执行建议，避免只给观点不给论据。
+- 保持真诚、克制、可讨论，不使用攻击性措辞。
+- 争议问题至少包含 1 段反方观点与回应，避免单边叙事。
+- 避免模板化口头禅（如“先说结论”“先给结论”），直接自然陈述核心判断。
+- 结尾互动为可选项：仅在确实有助于补充条件或推进讨论时使用，不强制每篇都加。
 
 ## 安全要求
 
+- 不要求用户直接粘贴 Cookie 字符串。
+- 仅从本地文件 `~/.config/zhihu_cookie.txt` 读取 Cookie。
 - 不在日志中打印完整 Cookie。
 - 不将 Cookie 写入仓库文件。
-- 默认 `draft` 模式优先，只有用户明确要求时才 `publish`。
+- 默认直接发布（`publish`），不走草稿分支。
+
+## 失败处理
+
+- 若 Cookie 文件不存在或为空，立即报错并停止。
+- 若检测到未登录或 Cookie 失效，立即报错并停止。
+- 若按钮文案或 DOM 结构变化，输出失败原因并提示更新选择器。
+- 若发布请求未触发或返回非 2xx，返回错误并停止。
+- 若商品链接未匹配到卡片，记录跳过原因并继续发布。
 
 ## 参考文件
 
-- Cookie 字段建议：`references/cookie-format.md`
+- 知乎写作方法论：`references/zhihu-quality-playbook.md`
+- 写作结构模板：`references/answer-framework.md`
+- 原创与查重自检：`references/originality-checklist.md`
+- Cookie 文件格式：`references/cookie-format.md`
 - 运行示例：`references/runbook.md`

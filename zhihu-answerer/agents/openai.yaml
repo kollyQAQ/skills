@@ -1,3 +1,4 @@
-display_name: Zhihu Answerer
-short_description: 使用知乎 Cookie 自动填写并提交回答
-default_prompt: 使用当前提供的知乎 Cookie，在指定问题页面写入回答内容，默认保存草稿并返回执行结果。
+interface:
+  display_name: "Zhihu Auto Publisher"
+  short_description: "给知乎链接按高赞方法论自动生成并直接发布高质量回答"
+  default_prompt: "读取知乎问题链接，按知乎高质量写作方法论生成原创回答并直接发布；开头自然给结论、避免模板化话术，结尾互动按需可选。Cookie 从 ~/.config/zhihu_cookie.txt 读取。"

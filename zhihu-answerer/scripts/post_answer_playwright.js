@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 function parseArgs(argv) {
-  const args = { mode: 'draft', productUrls: [] };
+  const args = { mode: 'publish', productUrls: [] };
   for (let i = 2; i < argv.length; i += 1) {
     const key = argv[i];
     const val = argv[i + 1];
@@ -54,6 +54,30 @@ function countVisibleChars(text) {
 
 function decodeEscapedNewlines(text) {
   return (text || '').replace(/\\n/g, '\n');
+}
+
+function expandHome(inputPath) {
+  if (!inputPath) return inputPath;
+  if (inputPath === '~') return process.env.HOME || '';
+  if (inputPath.startsWith('~/')) return path.join(process.env.HOME || '', inputPath.slice(2));
+  return inputPath;
+}
+
+function readCookieFromFile(cookieFilePath = '~/.config/zhihu_cookie.txt') {
+  const resolved = path.resolve(expandHome(cookieFilePath));
+  let cookieHeader = '';
+
+  try {
+    cookieHeader = fs.readFileSync(resolved, 'utf8').trim();
+  } catch (_) {
+    throw new Error(`Cannot read cookie file: ${resolved}`);
+  }
+
+  if (!cookieHeader) {
+    throw new Error(`Cookie file is empty: ${resolved}`);
+  }
+
+  return cookieHeader;
 }
 
 function normalizeUrlToken(raw) {
@@ -356,16 +380,21 @@ async function publishAndVerify(page) {
 
 async function main() {
   const args = parseArgs(process.argv);
-  const cookieHeader = process.env.ZHIHU_COOKIE;
+  const cookieFilePath = '~/.config/zhihu_cookie.txt';
+  let cookieHeader = '';
 
   if (!args.url || !args.content) {
     console.error('Usage: post_answer_playwright.js --url <question_url> --content <text> [--mode draft|publish] [--headless true|false] [--product-url <url> ...]');
     process.exit(1);
   }
-  if (!cookieHeader) {
-    console.error('Missing env: ZHIHU_COOKIE');
+
+  try {
+    cookieHeader = readCookieFromFile(cookieFilePath);
+  } catch (err) {
+    console.error(JSON.stringify({ ok: false, error: String(err.message || err) }, null, 2));
     process.exit(1);
   }
+
   if (!['draft', 'publish'].includes(args.mode)) {
     console.error('Invalid mode. Use draft or publish.');
     process.exit(1);
