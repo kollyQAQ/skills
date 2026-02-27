@@ -1,0 +1,4 @@
+interface:
+  display_name: "MP3 Song Downloader"
+  short_description: "Download MP3 by song name to Downloads"
+  default_prompt: "Use $download-mp3-by-song-name to download an MP3 by song name to my Downloads folder."
